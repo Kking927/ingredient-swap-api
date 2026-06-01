@@ -343,14 +343,27 @@ app.get('/', (req, res) => {
   res.send('Welcome to the IngredientSwap API!');
 });
 
+app.get('/api', (req, res) => {
+  res.json(substitutions);
+});
+
 app.get('/api/:ingredient', (req, res) => {
   const ingredient = req.params.ingredient.toLowerCase();
 
   if (substitutions[ingredient]) {
     res.json(substitutions[ingredient]);
   } else {
-    res.json(substitutions.unknown);
+    res.status(404).json({
+      error: "Ingredient not found",
+      availableIngredients: Object.keys(substitutions)
+    });
   }
+});
+
+const PORT = process.env.PORT || 8000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
 
 const PORT = process.env.PORT || 8000;
