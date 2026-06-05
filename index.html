@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ingredient Swapper UI</title>
+    <style>
+        :root {
+            --primary: #27ae60;
+            --primary-hover: #219653;
+            --bg: #fafafa;
+            --card-bg: #ffffff;
+            --text: #333;
+            --border: #ddd;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+        }
+
+        @media (min-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #34495e;
+            border-bottom: 2px solid #f1f3f4;
+            padding-bottom: 10px;
+        }
+
+        label {
+            display: block;
+            margin-top: 12px;
+            margin-bottom: 4px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+
+        textarea {
+            resize: vertical;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            width: 100%;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: var(--primary-hover);
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .search-box input {
+            margin: 0;
+        }
+
+        .search-box button {
+            width: auto;
+            margin: 0;
+            padding: 10px 20px;
+        }
+
+        .result-item {
+            background: #f8f9fa;
+            border-left: 4px solid var(--primary);
+            padding: 15px;
+            border-radius: 0 4px 4px 0;
+            margin-top: 15px;
+        }
+
+        .result-item h3 {
+            margin: 0 0 8px 0;
+            color: #2c3e50;
+        }
+
+        .result-item p {
+            margin: 4px 0;
+            font-size: 0.95rem;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            display: block;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            display: block;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Ingredient Swapper Portal</h1>
+    
+    <div class="grid">
+        <div class="card">
+            <h2>Find a Substitute</h2>
+            <div class="search-box">
+                <input type="text" id="searchBar" placeholder="Type ingredient (e.g., egg, milk)...">
+                <button onclick="searchAPI()">Search</button>
+            </div>
+            <div id="searchResults"></div>
+        </div>
+
+        <div class="card">
+            <h2>Add Custom Swap Info</h2>
+            <form id="swapForm" onsubmit="pushToAPI(event)">
+                <label for="ingName">Ingredient Name *</label>
+                <input type="text" id="ingName" placeholder="e.g., Heavy Cream" required>
+
+                <label for="ingSub">Best Alternative Replacement *</label>
+                <input type="text" id="ingSub" placeholder="e.g., 3/4 cup milk + 1/4 cup melted butter" required>
+
+                <label for="ingAmt">Amount Equivalent</label>
+                <input type="text" id="ingAmt" placeholder="e.g., 1 cup">
+
+                <label for="ingUses">Best Used For (Comma separated values)</label>
+                <input type="text" id="ingUses" placeholder="e.g., sauces, baking, desserts">
+
+                <label for="ingNotes">Chef Notes</label>
+                <textarea id="ingNotes" rows="3" placeholder="Any tricks or baking rules..."></textarea>
+
+                <button type="submit">Push to API</button>
+                <div id="statusMsg" class="status"></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Uses the current domain automatically (works locally or deployed)
+        const BASE_URL = window.location.origin;
+
+        // 1. GET Request: Handles searching the API (UPDATED UX)
+        async function searchAPI() {
+            const query = document.getElementById('searchBar').value.trim();
+            const resultsBox = document.getElementById('searchResults');
+            
+            // Clear out previous results if they empty the input field
+            if(!query) {
+                resultsBox.innerHTML = '';
+                return;
+            }
+            
+            resultsBox.innerHTML = '<p style="color: #666;">Searching database...</p>';
+
+            try {
+                const res = await fetch(`${BASE_URL}/api/search?query=${encodeURIComponent(query)}`);
+                const items = await res.json();
+                resultsBox.innerHTML = '';
+
+                if(items.length === 0) {
+                    resultsBox.innerHTML = '<p style="color:#7f8c8d; margin-top: 15px;">No alternatives found for that item.</p>';
+                    return;
+                }
+
+                items.forEach(item => {
+                    resultsBox.innerHTML += `
+                        <div class="result-item">
+                            <h3>${item.ingredient}</h3>
+                            <p><strong>Substitute:</strong> ${item.substitution}</p>
+                            <p><strong>Amount:</strong> ${item.amountEquivalent || '1 unit'}</p>
+                            <p><strong>Best For:</strong> ${Array.isArray(item.bestFor) ? item.bestFor.join(', ') : item.bestFor}</p>
+                            ${item.notes ? `<p><strong>Notes:</strong> <em>${item.notes}</em></p>` : ''}
+                        </div>
+                    `;
+                });
+            } catch (err) {
+                resultsBox.innerHTML = '<p style="color:#c0392b; margin-top: 15px;">Error reaching the API server.</p>';
+            }
+        }
+
+        // 2. POST Request: Pushes new items to the API
+        async function pushToAPI(e) {
+            e.preventDefault();
+            const statusBox = document.getElementById('statusMsg');
+            statusBox.className = 'status'; 
+            statusBox.style.display = 'none';
+
+            const bodyPayload = {
+                ingredient: document.getElementById('ingName').value,
+                substitution: document.getElementById('ingSub').value,
+                amountEquivalent: document.getElementById('ingAmt').value,
+                bestFor: document.getElementById('ingUses').value,
+                notes: document.getElementById('ingNotes').value
+            };
+
+            try {
+                const res = await fetch(`${BASE_URL}/api/ingredients`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(bodyPayload)
+                });
+
+                if(res.ok) {
+                    statusBox.innerText = "Swap rule successfully added to memory!";
+                    statusBox.classList.add('success');
+                    document.getElementById('swapForm').reset();
+                } else {
+                    const errData = await res.json();
+                    throw new Error(errData.error || "Rejected by backend router.");
+                }
+            } catch (err) {
+                statusBox.innerText = `Error: ${err.message}`;
+                statusBox.classList.add('error');
+            }
+        }
+    </script>
+</body>
+</html>
