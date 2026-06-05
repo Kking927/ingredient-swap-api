@@ -6,7 +6,7 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json()); // CRITICAL: Allows Express to parse JSON sent from the UI
-app.use(express.static('public')); // Serves your UI file automatically from a folder named '
+app.use(express.static('public')); // Serves your UI file automatically from a folder named public
 
 // Use let to be able to add new substitutions
 let substitutions = {
