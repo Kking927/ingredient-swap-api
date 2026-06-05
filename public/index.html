@@ -194,12 +194,17 @@
         // Uses the current domain automatically (works locally or deployed)
         const BASE_URL = window.location.origin;
 
-        // 1. GET Request: Handles searching the API
+        // 1. GET Request: Handles searching the API (UPDATED UX)
         async function searchAPI() {
             const query = document.getElementById('searchBar').value.trim();
             const resultsBox = document.getElementById('searchResults');
-            if(!query) return;
-
+            
+            // Clear out previous results if they empty the input field
+            if(!query) {
+                resultsBox.innerHTML = '';
+                return;
+            }
+            
             resultsBox.innerHTML = '<p style="color: #666;">Searching database...</p>';
 
             try {
