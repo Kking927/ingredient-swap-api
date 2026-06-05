@@ -1,7 +1,15 @@
 const express = require('express');
+const cors = require('cors'); // Added to fix potential browser origin blocking
+const path = require('path');
 const app = express();
 
-const substitutions = {
+// Middleware
+app.use(cors());
+app.use(express.json()); // CRITICAL: Allows Express to parse JSON sent from the UI
+app.use(express.static('public')); // Serves your UI file automatically from a folder named '
+
+// Use let to be able to add new substitutions
+let substitutions = {
   egg: {
     ingredient: "Egg",
     substitution: "1 tbsp ground flaxseed + 3 tbsp water",
@@ -339,17 +347,64 @@ const substitutions = {
   }
 };
 
-app.get('/', (req, res) => {
-  res.send('Welcome to the IngredientSwap API!');
+// Handles GET /api/search?query=egg
+app.get('/api/search', (req, res) => {
+  const query = req.query.query;
+  if (!query) {
+    return res.status(400).json({ error: "Missing query parameter" });
+  }
+
+  const lowercaseQuery = query.toLowerCase();
+  
+  // Filter database entries that match the search term
+  const results = Object.keys(substitutions)
+    .filter(key => 
+      key.includes(lowercaseQuery) || 
+      substitutions[key].ingredient.toLowerCase().includes(lowercaseQuery)
+    )
+    .map(key => substitutions[key]);
+
+  res.json(results);
 });
 
+// --- NEW ROUTE: PUSH / ADD DATA ---
+// Handles POST /api/ingredients
+app.post('/api/ingredients', (req, res) => {
+  const { ingredient, substitution, amountEquivalent, bestFor, notes } = req.body;
+
+  // Basic validation
+  if (!ingredient || !substitution) {
+    return res.status(400).json({ error: "Ingredient and substitution fields are required." });
+  }
+
+  // Create a database key (e.g., "Heavy Cream" -> "heavy_cream")
+  const databaseKey = ingredient.toLowerCase().trim().replace(/\s+/g, '_');
+
+  // Format array if it comes in as a string split by commas
+  let bestForArray = bestFor;
+  if (typeof bestFor === 'string') {
+    bestForArray = bestFor.split(',').map(item => item.trim()).filter(Boolean);
+  }
+
+  // Save into in-memory storage object
+  substitutions[databaseKey] = {
+    ingredient: ingredient.trim(),
+    substitution: substitution.trim(),
+    amountEquivalent: amountEquivalent ? amountEquivalent.trim() : "1 unit",
+    bestFor: bestForArray || [],
+    notes: notes ? notes.trim() : ""
+  };
+
+  res.status(201).json({ message: "Successfully added!", data: substitutions[databaseKey] });
+});
+
+// Existing routes
 app.get('/api', (req, res) => {
   res.json(substitutions);
 });
 
 app.get('/api/:ingredient', (req, res) => {
   const ingredient = req.params.ingredient.toLowerCase();
-
   if (substitutions[ingredient]) {
     res.json(substitutions[ingredient]);
   } else {
@@ -361,13 +416,6 @@ app.get('/api/:ingredient', (req, res) => {
 });
 
 const PORT = process.env.PORT || 8000;
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
-const PORT = process.env.PORT || 8000;
-
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
